@@ -1,8 +1,8 @@
 {
   "name": "h5-audio-player",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "a javascript library or utility for creating audio player on web  or server or mobile side",
-  "main": "src/audioplayer.js",
+  "main": "dest/audioplayer.bundle.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx webpack --config webpack.config.js"
@@ -25,7 +25,6 @@
     "README.md",
     "LICENSE",
     "package.json",
-    "src/audioplayer.js",
     "dest/audioplayer.bundle.js"
   ]
 }

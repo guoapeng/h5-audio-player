@@ -382,4 +382,4 @@ class PlayList {
     }
 }
 
-export {AudioPlayer, SubtitleManager, PlayList, SubtitleParser, AudioControl};
+export default {AudioPlayer, SubtitleManager, PlayList, SubtitleParser, AudioControl};
