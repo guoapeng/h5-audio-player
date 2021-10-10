@@ -2,7 +2,7 @@
   "name": "h5-audio-player",
   "version": "0.1.0",
   "description": "a javascript library or utility for creating audio player on web  or server or mobile side",
-  "main": "greeting.js",
+  "main": "src/audioplayer.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx webpack --config webpack.config.js"
@@ -10,20 +10,22 @@
   "keywords": [
     "audioplayer"
   ],
-  "author": "eagle",
+  "author": "eagle.guo",
   "license": "MIT",
-  "files": [
-    "package.json",
-    "greeting.js",
-    "audioplayer.js",
-    "README.md",
-    "index.js"
-  ],
+  "private": false,
   "devDependencies": {
-    "css-loader": "^6.3.0",
-    "mini-css-extract-plugin": "^2.4.1",
-    "webpack": "^5.57.1",
-    "webpack-cli": "^4.8.0",
-    "webpack-dev-server": "^4.3.1"
-  }
+    "@babel/cli": "^7.15.7",
+    "@babel/core": "^7.15.8",
+    "@babel/preset-env": "^7.15.8",
+    "babel-loader": "^8.2.2",
+    "webpack": "^5.58.1",
+    "webpack-cli": "^4.9.0"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "src/audioplayer.js",
+    "dest/audioplayer.bundle.js"
+  ]
 }

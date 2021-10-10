@@ -3,7 +3,6 @@
 
 ## Development
 
-
 ## usage
 
 ### Install dependencies
@@ -11,3 +10,4 @@
   npm install audioplayer
 ```
 
+### example code
