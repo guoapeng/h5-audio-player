@@ -47,6 +47,7 @@ class AudioPlayer {
         if (audioContainer) this.audioContainer = audioContainer
         return this;
     }
+
     withAudioContainer(audioContainer) {
         this.audioContainer = audioContainer;
         return this;
@@ -60,9 +61,11 @@ class AudioPlayer {
         //the function just a placeholder and default implementation
         //need to replace with actual method during initialization on runtime
     }
+
     getAudioContainer() {
         return this.audioContainer
     }
+
     play(audioUrl) {
         this.getAudioContainer().addEventListener('canplay', function () {
             var playPromise = this.play();
@@ -81,11 +84,13 @@ class AudioPlayer {
         });
         this.getAudioContainer().src = audioUrl;
     }
+
     playback(adjustToTime) {
         this.getAudioContainer().pause()
         this.getAudioContainer().currentTime = adjustToTime
         this.getAudioContainer().play()
     }
+    
     pause() {
         this.getAudioContainer().pause()
     }
