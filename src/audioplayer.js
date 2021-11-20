@@ -1,4 +1,4 @@
-import {$} from 'jquery';
+const $ = require('jquery');
 
 var mkPlayer = {
     api: 'api.php', // api地址
@@ -15,34 +15,34 @@ var mkPlayer = {
     debug: true   // 是否开启调试模式(true/false)
 }
 
-function DataSaver() {
+// 存储全局变量
+var rem = [];
 
-}
+class DataSaver {
 
-DataSaver.prototype = {
+    constructor() {
+
+    }
     // 播放器本地存储信息
     // 参数：键值、数据
-    savedata: function (key, data) {
+    savedata(key, data) {
         key = 'mkPlayer2_' + key;    // 添加前缀，防止串用
         data = JSON.stringify(data);
         // 存储，IE6~7 不支持HTML5本地存储
         if (window.localStorage) {
             localStorage.setItem(key, data);
         }
-    },
+    }
     // 播放器读取本地存储信息
     // 参数：键值
     // 返回：数据
-    readdata: function (key) {
+    readdata(key) {
         if (!window.localStorage) return '';
         key = 'mkPlayer2_' + key;
         return JSON.parse(localStorage.getItem(key));
     }
-
 }
 
-// 存储全局变量
-var rem = [];
 rem.dataSaver = new DataSaver();        // 连续播放失败的歌曲数归零
 
 class AudioControl {
@@ -57,6 +57,24 @@ class AudioControl {
     init() {
         //enable keyboard control , spacebar to play and pause
         var that = this;
+         // 播放、暂停按钮的处理
+         $(".btn-play").on("click", function () {
+            window.dispatchEvent(new Event('player-pause'));
+        });
+        // 循环顺序的处理
+        $(".btn-order").on("click", function () {
+            that.orderChange();
+        });
+        // 上一首歌
+        $(".btn-prev").on("click", function () {
+            window.dispatchEvent(new Event('audioFinished'));
+        });
+
+        // 下一首
+        $(".btn-next").on("click", function () {
+            window.dispatchEvent(new Event('audioFinished'));
+        });
+
         window.addEventListener('keydown', function (e) {
             if (e.keyCode === 32) {
                 if (that.getAudio().paused) {
@@ -66,6 +84,47 @@ class AudioControl {
                 }
             }
         }, false);
+
+        window.addEventListener('player-pause', function(e) {
+            if (that.getAudio().paused) {
+                $(".btn-play").removeClass("btn-state-paused");     // 取消暂停
+                $("#music-progress .dot-move").removeClass("dot-move");   // 小点闪烁效果
+                that.getAudio().play();
+            } else {
+                $(".btn-play").addClass("btn-state-paused");        // 恢复暂停
+                if (mkPlayer.dotshine) {
+                    $("#music-progress .mkpgb-dot").addClass("dot-move");   // 小点闪烁效果
+                }
+                that.getAudio().pause();
+            }
+        }, false);
+    }
+     // 循环顺序
+     orderChange() {
+        var orderDiv = $(".btn-order");
+        orderDiv.removeClass();
+        switch (rem.order) {
+            case 1:     // 单曲循环 -> 列表循环
+                orderDiv.addClass("player-btn btn-order btn-order-list");
+                orderDiv.attr("title", "列表循环");
+                //layer.msg("列表循环");
+                rem.order = 2;
+                break;
+
+            case 3:     // 随机播放 -> 单曲循环
+                orderDiv.addClass("player-btn btn-order btn-order-single");
+                orderDiv.attr("title", "单曲循环");
+                //layer.msg("单曲循环");
+                rem.order = 1;
+                break;
+
+            // case 2:
+            default:    // 列表循环(其它) -> 随机播放
+                orderDiv.addClass("player-btn btn-order btn-order-random");
+                orderDiv.attr("title", "随机播放");
+                //layer.msg("随机播放");
+                rem.order = 3;
+        }
     }
 }
 
@@ -91,6 +150,16 @@ class AudioPlayer {
         window.addEventListener('adjusttime', function (e) {
             that.playback(e.adjustToTime);
         });
+
+        window.addEventListener("adjusttimeByPercent", function (e) {
+            var newTime = (that.audioContainer.duration * e.percent).toFixed(4);
+            that.playback(newTime);
+        });
+
+        window.addEventListener("vb-adjusttime", function (e) {
+            that.audioContainer.volume = e.adjustToTime;
+        });
+
         if (audioContainer) this.audioContainer = audioContainer
         return this;
     }
@@ -99,14 +168,25 @@ class AudioPlayer {
         this.audioContainer = audioContainer;
         return this;
     }
-    
-    onPlayerError() {
-        //the function just a placeholder and default implementation
-        //which always overrides by actual method during initialization on runtime
+
+    onPlayerError(e) {
+        var playErrorEvent = new Event("mb-play-error");
+        window.dispatchEvent(playErrorEvent)
     }
-    onTimeUpdate() {
-        //the function just a placeholder and default implementation
-        //need to replace with actual method during initialization on runtime
+
+    onTimeUpdate(e) {
+        var progressUpdateEvent = new Event("mb-progress-update");
+        progressUpdateEvent.percent = this.getProgress();
+        progressUpdateEvent.currentTime = this.getCurrentTime();
+        window.dispatchEvent(progressUpdateEvent)
+    }
+
+    getProgress() {
+        return this.audioContainer.currentTime / this.audioContainer.duration;
+    }
+
+    getCurrentTime() {
+        return this.audioContainer.currentTime;
     }
 
     getAudioContainer() {
@@ -118,7 +198,7 @@ class AudioPlayer {
             var playPromise = this.play();
             var audio = this;
             if (playPromise !== undefined) {
-                playPromise.then(()=> {
+                playPromise.then(() => {
                     // Automatic playback started!
                     // Show playing UI.
                     audio.play()
@@ -137,7 +217,7 @@ class AudioPlayer {
         this.getAudioContainer().currentTime = adjustToTime
         this.getAudioContainer().play()
     }
-    
+
     pause() {
         this.getAudioContainer().pause()
     }
@@ -157,11 +237,11 @@ class SubtitleManager {
         window.addEventListener('playAudio', function (e) {
             that.loadLyric(e.lyric);
         });
-        window.addEventListener('mb-progress-update', function(e){
+        window.addEventListener('mb-progress-update', function (e) {
             that.synchronizeLyric(e.currentTime);
         });
 
-        window.addEventListener('mb-play-error', function(e){
+        window.addEventListener('mb-play-error', function (e) {
             that.getSubtitleContainer().textContent = '!fail to load the audio :(';
         });
     }
@@ -181,7 +261,7 @@ class SubtitleManager {
         this.lyric = lyric
     }
 
-    synchronizeLyric(e, currentTime) {
+    synchronizeLyric(currentTime) {
         if (!this.getLyricText()) return;
         for (var i = 0, l = this.getLyricText().length; i < l; i++) {
             var line = document.getElementById('line-' + i);
@@ -196,7 +276,7 @@ class SubtitleManager {
                 if (line) line.className = 'current-line-1';
                 if (line) this.getSubtitleContainer().style.top = 130 - line.offsetTop + 'px';
             }
-            
+
         }
     }
 
@@ -232,7 +312,7 @@ class SubtitleManager {
             that.appendLyric(that.getLyricText());
         };
         request.onerror = request.onabort = function (e) {
-            that.getSubtitleContainer().textContent = '!failed to load the lyric :('+e;
+            that.getSubtitleContainer().textContent = '!failed to load the lyric :(' + e;
         };
         that.reset();
         request.send();
@@ -254,7 +334,7 @@ class SubtitleParser {
         while (lines.length > 0 && !pattern.test(lines[0])) {
             lines = lines.slice(1);
         }
-        
+
         //remove the last empty item
         lines[lines.length - 1].length === 0 && lines.pop();
         //display all content on the page
@@ -262,7 +342,7 @@ class SubtitleParser {
             var time = v.match(pattern),
                 value = v.split(pattern),
                 len = time.length;
-            for (i = 0,  text = ''; i < len; i++) {
+            for (i = 0, text = ''; i < len; i++) {
                 text = time[i]
                 var t = text.slice(1, -1).split(':');
                 result.push(new SubtitleItem(parseInt(t[0], 10) * 60 + parseFloat(t[1]) + parseInt(offset) / 1000, value[i + 1]));
@@ -351,7 +431,7 @@ class PlayList {
         for (var i = allSongs.length - 1; i >= 0; i--) {
             if (allSongs[i].className) allSongs[i].className = '';
         }
-        
+
         allSongs[this.currentIndex].className = 'current-song';
     }
     moveToNext() {
@@ -400,7 +480,7 @@ class PlayList {
             if (e.target.nodeName.toLowerCase() !== 'a') {
                 return;
             }
-            
+
             var selectedIndex = playList.getSongIndex(e.target.dataset.name);
             playList.setCurrentIndex(selectedIndex);
             playList.setClass();
@@ -429,25 +509,26 @@ class PlayList {
 
 // mk进度条插件
 // 进度条框 id，初始量，回调函数
-function ProgressBar(bar, percent, isLocked) {
-    this.bar = bar;
-    if(percent >1 || percent<0) {
-        if (percent < 0) this.percent = 0;    // 范围限定
-        if (percent > 1) this.percent = 1;
-    } else {
-        this.percent = percent;
+class ProgressBar {
+    constructor(bar, percent, isLocked) {
+        this.bar = bar;
+        if (percent > 1 || percent < 0) {
+            if (percent < 0)
+                this.percent = 0; // 范围限定
+            if (percent > 1)
+                this.percent = 1;
+        } else {
+            this.percent = percent;
+        }
+        this.locked = isLocked;
+        this.mdown = false;
+        this.init();
     }
-    this.locked = isLocked;
-    this.mdown = false;
-    this.init();
-}
-
-ProgressBar.prototype = {
     // 进度条初始化
-    init: function () {
+    init() {
         var mk = this;
         mk.mdown = false;
-        this.barMove.bind(this)
+        this.barMove.bind(this);
         // 加载进度条html元素
         $(mk.bar).html('<div class="mkpgb-bar"></div><div class="mkpgb-cur"></div><div class="mkpgb-dot"></div>');
         // 获取偏移量
@@ -460,11 +541,12 @@ ProgressBar.prototype = {
         });
         // 监听小点的鼠标按下事件
         $(mk.bar + ' .mkpgb-dot').on('mousedown', function (e) {
-            e.preventDefault();    // 取消原有事件的默认动作
+            e.preventDefault(); // 取消原有事件的默认动作
         });
         // 监听进度条整体的鼠标按下事件
         $(mk.bar).on('mousedown', function (e) {
-            if (!mk.locked) mk.mdown = true;
+            if (!mk.locked)
+                mk.mdown = true;
             mk.barMove(e);
         });
         // 监听鼠标移动事件，用于拖动
@@ -476,15 +558,15 @@ ProgressBar.prototype = {
             mk.mdown = false;
         });
 
-        window.addEventListener('mb-progress-update', function(e){
+        window.addEventListener('mb-progress-update', function (e) {
             mk.goto(e.percent);
         });
 
-        window.addEventListener('adjusttimeByPercent', function(e){
+        window.addEventListener('adjusttimeByPercent', function (e) {
             mk.goto(e.percent);
         });
 
-        window.addEventListener('playAudio', function(e){
+        window.addEventListener('playAudio', function (e) {
             mk.goto(0); // 进度条强制归零
             mk.lock(false); // 取消进度条锁定
         });
@@ -492,11 +574,11 @@ ProgressBar.prototype = {
         mk.goto(mk.percent);
 
         return true;
-    },
-
-    barMove: function (e) {
+    }
+    barMove(e) {
         var mk = this;
-        if (!mk.mdown) return;
+        if (!mk.mdown)
+            return;
         var percent = 0;
         if (e.clientX < mk.minLength) {
             percent = 0;
@@ -506,23 +588,25 @@ ProgressBar.prototype = {
             percent = (e.clientX - mk.minLength) / (mk.maxLength - mk.minLength);
         }
         var adjustTimeEvent = new Event('adjusttimeByPercent');
-        adjustTimeEvent.percent = percent
-        window.dispatchEvent(adjustTimeEvent)
+        adjustTimeEvent.percent = percent;
+        window.dispatchEvent(adjustTimeEvent);
 
         mk.goto(percent);
         return true;
-    },
+    }
     // 跳转至某处
-    goto: function (percent) {
-        if (percent > 1) percent = 1;
-        if (percent < 0) percent = 0;
+    goto(percent) {
+        if (percent > 1)
+            percent = 1;
+        if (percent < 0)
+            percent = 0;
         this.percent = percent;
         $(this.bar + ' .mkpgb-dot').css('left', (percent * 100) + '%');
         $(this.bar + ' .mkpgb-cur').css('width', (percent * 100) + '%');
         return true;
-    },
+    }
     // 锁定进度条
-    lock: function (islock) {
+    lock(islock) {
         if (islock) {
             this.locked = true;
             $(this.bar).addClass('mkpgb-locked');
@@ -532,34 +616,35 @@ ProgressBar.prototype = {
         }
         return true;
     }
-};
-
+}
 
 // mk进度条插件
 // 进度条框 id，初始量，回调函数
-function VolumeBar (bar, isLocked) {
-    this.bar = bar;
-    // 初始化音量设定
-    var tmp_vol = rem.dataSaver.readdata('volume');
-    tmp_vol = (tmp_vol != null) ? tmp_vol : (rem.isMobile ? 1 : mkPlayer.volume);
-    if (tmp_vol > 1 || tmp_vol < 0) {
-        if (tmp_vol < 0) this.percent = 0;    // 范围限定
-        if (tmp_vol > 1) this.percent = 1;
-    } else {
-        this.percent = tmp_vol;
+class VolumeBar {
+    constructor(bar, isLocked) {
+        this.bar = bar;
+        // 初始化音量设定
+        var tmp_vol = rem.dataSaver.readdata('volume');
+        tmp_vol = (tmp_vol != null) ? tmp_vol : (rem.isMobile ? 1 : mkPlayer.volume);
+        if (tmp_vol > 1 || tmp_vol < 0) {
+            if (tmp_vol < 0)
+                this.percent = 0; // 范围限定
+            if (tmp_vol > 1)
+                this.percent = 1;
+        } else {
+            this.percent = tmp_vol;
+        }
+        this.locked = isLocked;
+        this.mdown = false;
+        this.init();
+        if (this.percent == 0)
+            $('.btn-quiet').addClass('btn-state-quiet'); // 添加静音样式
     }
-    this.locked = isLocked;
-    this.mdown = false;
-    this.init();
-    if (this.percent == 0) $('.btn-quiet').addClass('btn-state-quiet'); // 添加静音样式
-}
-
-VolumeBar.prototype = {
     // 进度条初始化
-    init: function () {
+    init() {
         var mk = this;
         mk.mdown = false;
-        this.barMove.bind(this)
+        this.barMove.bind(this);
         // 加载进度条html元素
         $(mk.bar).html('<div class="mkpgb-bar"></div><div class="mkpgb-cur"></div><div class="mkpgb-dot"></div>');
         // 获取偏移量
@@ -572,11 +657,12 @@ VolumeBar.prototype = {
         });
         // 监听小点的鼠标按下事件
         $(mk.bar + ' .mkpgb-dot').on('mousedown', function (e) {
-            e.preventDefault();    // 取消原有事件的默认动作
+            e.preventDefault(); // 取消原有事件的默认动作
         });
         // 监听进度条整体的鼠标按下事件
         $(mk.bar).on('mousedown', function (e) {
-            if (!mk.locked) mk.mdown = true;
+            if (!mk.locked)
+                mk.mdown = true;
             mk.barMove(e);
         });
         // 监听鼠标移动事件，用于拖动
@@ -590,39 +676,55 @@ VolumeBar.prototype = {
 
         // 静音按钮点击事件
         $('.btn-quiet').on('click', function () {
-            var oldVol;     // 之前的音量值
+            var oldVol; // 之前的音量值
             if ($(this).is('.btn-state-quiet')) {
                 oldVol = $(this).data('volume');
-                oldVol = oldVol ? oldVol : (rem.isMobile ? 1 : mkPlayer.volume);  // 没找到记录的音量，则重置为默认音量
-                $(this).removeClass('btn-state-quiet');     // 取消静音
+                oldVol = oldVol ? oldVol : (rem.isMobile ? 1 : mkPlayer.volume); // 没找到记录的音量，则重置为默认音量
+                $(this).removeClass('btn-state-quiet'); // 取消静音
             } else {
                 oldVol = mk.percent;
-                $(this).addClass('btn-state-quiet');        // 开启静音
+                $(this).addClass('btn-state-quiet'); // 开启静音
                 $(this).data('volume', oldVol); // 记录当前音量值
                 oldVol = 0;
             }
             rem.dataSaver.savedata('volume', oldVol); // 存储音量信息
-            mk.goto(oldVol);    // 刷新音量显示
+            mk.goto(oldVol); // 刷新音量显示
             var adjustTimeEvent = new Event('vb-adjusttime');
-            adjustTimeEvent.adjustToTime = oldVol
-            window.dispatchEvent(adjustTimeEvent)
+            adjustTimeEvent.adjustToTime = oldVol;
+            window.dispatchEvent(adjustTimeEvent);
         });
 
         window.addEventListener('query-volume', function (e) {
             var volumeFeedbackEvent = new Event('feedback-current-volume');
             volumeFeedbackEvent.currentVolume = mk.percent;
-            window.dispatchEvent(volumeFeedbackEvent)
+            window.dispatchEvent(volumeFeedbackEvent);
         });
 
+        window.addEventListener("vb-adjusttime", function (e) {
+            mk.vBcallback(e.adjustToTime);
+        });
 
         mk.goto(mk.percent);
 
         return true;
-    },
+    }
+    // 音量条变动回调函数
+    // 参数：新的值
+    vBcallback(newVal) {
 
-    barMove: function (e) {
+        if ($(".btn-quiet").is('.btn-state-quiet')) {
+            $(".btn-quiet").removeClass("btn-state-quiet"); // 取消静音
+        }
+
+        if (newVal === 0)
+            $(".btn-quiet").addClass("btn-state-quiet");
+
+        rem.dataSaver.savedata('volume', newVal); // 存储音量信息
+    }
+    barMove(e) {
         var mk = this;
-        if (!mk.mdown) return;
+        if (!mk.mdown)
+            return;
         var percent = 0;
         if (e.clientX < mk.minLength) {
             percent = 0;
@@ -632,23 +734,25 @@ VolumeBar.prototype = {
             percent = (e.clientX - mk.minLength) / (mk.maxLength - mk.minLength);
         }
         var adjustTimeEvent = new Event('vb-adjusttime');
-        adjustTimeEvent.adjustToTime = percent
-        window.dispatchEvent(adjustTimeEvent)
+        adjustTimeEvent.adjustToTime = percent;
+        window.dispatchEvent(adjustTimeEvent);
 
         mk.goto(percent);
         return true;
-    },
+    }
     // 跳转至某处
-    goto: function (percent) {
-        if (percent > 1) percent = 1;
-        if (percent < 0) percent = 0;
+    goto(percent) {
+        if (percent > 1)
+            percent = 1;
+        if (percent < 0)
+            percent = 0;
         this.percent = percent;
         $(this.bar + ' .mkpgb-dot').css('left', (percent * 100) + '%');
         $(this.bar + ' .mkpgb-cur').css('width', (percent * 100) + '%');
         return true;
-    },
+    }
     // 锁定进度条
-    lock: function (islock) {
+    lock(islock) {
         if (islock) {
             this.locked = true;
             $(this.bar).addClass('mkpgb-locked');
@@ -658,6 +762,7 @@ VolumeBar.prototype = {
         }
         return true;
     }
-};
+}
 
-export default {AudioPlayer, SubtitleManager, PlayList, SubtitleParser, AudioControl, ProgressBar, VolumeBar};
+
+export default { AudioPlayer, SubtitleManager, PlayList, SubtitleParser, AudioControl, ProgressBar, VolumeBar };
