@@ -1,21 +1,12 @@
 const $ = require('jquery');
 
 var mkPlayer = {
-    api: 'api.php', // api地址
-    loadcount: 20,  // 搜索结果一次加载多少条
-    method: 'GET',     // 数据传输方式(POST/GET)
-    defaultlist: 3,    // 默认要显示的播放列表编号
-    autoplay: false,    // 是否自动播放(true/false) *此选项在移动端可能无效
-    coverbg: true,      // 是否开启封面背景(true/false) *开启后会有些卡
-    mcoverbg: true,     // 是否开启[移动端]封面背景(true/false)
-    dotshine: true,    // 是否开启播放进度条的小点闪动效果[不支持IE](true/false) *开启后会有些卡
-    mdotshine: false,   // 是否开启[移动端]播放进度条的小点闪动效果[不支持IE](true/false)
-    volume: 0.6,        // 默认音量值(0~1之间)
-    version: 'v2.41',    // 播放器当前版本号(仅供调试)
-    debug: true   // 是否开启调试模式(true/false)
+    volume: 0.6,        // Default sound volume(between 0~1)
+    version: 'v2.41',    // mkPlayer version(testing purpose)
+    debug: true   // Enable debug mode log (true/false)
 }
 
-// 存储全局变量
+// Global variables
 var rem = [];
 
 class DataSaver {
@@ -23,19 +14,17 @@ class DataSaver {
     constructor() {
 
     }
-    // 播放器本地存储信息
-    // 参数：键值、数据
+    // save data to local storage
     savedata(key, data) {
-        key = 'mkPlayer2_' + key;    // 添加前缀，防止串用
+        // onstruct key for storage, prefix for avoid conflict with other libarary which use local storage
+        key = 'mkPlayer2_' + key;
         data = JSON.stringify(data);
-        // 存储，IE6~7 不支持HTML5本地存储
+        // before saving, check if the browser support local storage
         if (window.localStorage) {
             localStorage.setItem(key, data);
         }
     }
-    // 播放器读取本地存储信息
-    // 参数：键值
-    // 返回：数据
+    // read infor from local storage by key 
     readdata(key) {
         if (!window.localStorage) return '';
         key = 'mkPlayer2_' + key;
@@ -43,7 +32,7 @@ class DataSaver {
     }
 }
 
-rem.dataSaver = new DataSaver();        // 连续播放失败的歌曲数归零
+rem.dataSaver = new DataSaver();
 
 class AudioControl {
     constructor(audioContainer) {
@@ -54,23 +43,23 @@ class AudioControl {
         return this.audioContainer;
     }
 
-    init() {
-        //enable keyboard control , spacebar to play and pause
+    listen() {
+        // Enable keyboard control , spacebar to play and pause
         var that = this;
-         // 播放、暂停按钮的处理
-         $(".btn-play").on("click", function () {
+        // play or pause handling
+        $(".btn-play").on("click", function () {
             window.dispatchEvent(new Event('player-pause'));
         });
-        // 循环顺序的处理
+        // set play mode orderly or randomly etc.
         $(".btn-order").on("click", function () {
             that.orderChange();
         });
-        // 上一首歌
+        // play previous song or sound
         $(".btn-prev").on("click", function () {
             window.dispatchEvent(new Event('audioFinished'));
         });
 
-        // 下一首
+        // play next sond or sound
         $(".btn-next").on("click", function () {
             window.dispatchEvent(new Event('audioFinished'));
         });
@@ -85,44 +74,38 @@ class AudioControl {
             }
         }, false);
 
-        window.addEventListener('player-pause', function(e) {
+        window.addEventListener('player-pause', function (e) {
             if (that.getAudio().paused) {
-                $(".btn-play").removeClass("btn-state-paused");     // 取消暂停
-                $("#music-progress .dot-move").removeClass("dot-move");   // 小点闪烁效果
+                $(".btn-play").removeClass("btn-state-paused");     // unpause
                 that.getAudio().play();
             } else {
-                $(".btn-play").addClass("btn-state-paused");        // 恢复暂停
-                if (mkPlayer.dotshine) {
-                    $("#music-progress .mkpgb-dot").addClass("dot-move");   // 小点闪烁效果
-                }
+                $(".btn-play").addClass("btn-state-paused");        // pause
                 that.getAudio().pause();
             }
         }, false);
     }
-     // 循环顺序
-     orderChange() {
+
+    // playing order
+    orderChange() {
         var orderDiv = $(".btn-order");
         orderDiv.removeClass();
         switch (rem.order) {
-            case 1:     // 单曲循环 -> 列表循环
+            case 1:     // Single tune circulation-> circulation listing 
                 orderDiv.addClass("player-btn btn-order btn-order-list");
-                orderDiv.attr("title", "列表循环");
-                //layer.msg("列表循环");
+                orderDiv.attr("title", "Loop Playback");
                 rem.order = 2;
                 break;
 
-            case 3:     // 随机播放 -> 单曲循环
+            case 3:     // randomly play -> Single tune circulation
                 orderDiv.addClass("player-btn btn-order btn-order-single");
-                orderDiv.attr("title", "单曲循环");
-                //layer.msg("单曲循环");
+                orderDiv.attr("title", "single cycle");
                 rem.order = 1;
                 break;
 
             // case 2:
-            default:    // 列表循环(其它) -> 随机播放
+            default:    // circulation listing -> randomly play 
                 orderDiv.addClass("player-btn btn-order btn-order-random");
-                orderDiv.attr("title", "随机播放");
-                //layer.msg("随机播放");
+                orderDiv.attr("title", "random");
                 rem.order = 3;
         }
     }
@@ -133,7 +116,8 @@ class AudioPlayer {
         this.audioContainer = audioContainer;
     }
 
-    attachTo(audioContainer) {
+    listen() {
+        var audioContainer = this.audioContainer;
         var that = this;
         audioContainer.onended = function () {
             window.dispatchEvent(new Event('audioFinished'));
@@ -224,15 +208,11 @@ class AudioPlayer {
 }
 
 class SubtitleManager {
+
     constructor(subtitleContainer) {
         this.subtitleContainer = subtitleContainer;
         this.lyric = null;
         this.subtitleParser = new SubtitleParser();
-    }
-    getSubtitleContainer() {
-        return this.subtitleContainer;
-    }
-    init() {
         var that = this;
         window.addEventListener('playAudio', function (e) {
             that.loadLyric(e.lyric);
@@ -245,6 +225,11 @@ class SubtitleManager {
             that.getSubtitleContainer().textContent = '!fail to load the audio :(';
         });
     }
+
+    getSubtitleContainer() {
+        return this.subtitleContainer;
+    }
+
     reset() {
         //reset the position of the lyric container
         this.getSubtitleContainer().style.top = '130px';
@@ -371,7 +356,6 @@ class SubtitleParser {
         }
         return offset;
     }
-
 }
 
 class SubtitleItem {
@@ -382,12 +366,34 @@ class SubtitleItem {
 }
 
 class PlayList {
+    //suggest not calling the constructor directly
+    //recommend to call the factory method
     constructor(playListContainer) {
         this.container = playListContainer;
         this.currentIndex = 0;
         this.playStrategy = 1; // play orderly
         this.allAudios = [];
+        var playList = this
+        window.addEventListener('audioFinished', function () {
+            playList.moveToNext();
+        });
+        window.addEventListener('playListReady', function () {
+            playList.autoPlay();
+        });
+        this.handleClickEvent();
     }
+
+    static new(playListContainer, playStrategy, createTitleFn) {
+        let playList = new PlayList(playListContainer);
+        if (playStrategy) {
+            playList.playStrategy = playStrategy
+        }
+        if (createTitleFn) {
+            playList.createTitle = createTitleFn
+        }
+        return playList;
+    }
+
     setCurrentIndex(index) {
         this.currentIndex = index
     }
@@ -400,16 +406,7 @@ class PlayList {
     getCurrentAudio() {
         return this.getAllAudios()[this.currentIndex];
     }
-    init() {
-        var playList = this
-        window.addEventListener('audioFinished', function () {
-            playList.moveToNext();
-        });
-        window.addEventListener('playListReady', function () {
-            playList.autoPlay();
-        });
-        this.handleClickEvent();
-    }
+
     loadAudioList(contentUrl) {
         var playList = this
         //get all songs and add to the playlist
@@ -471,7 +468,7 @@ class PlayList {
         return li
     }
     createTitle(audioDetail) {
-        return audioDetail.song_name + '-' + audioDetail.artist;
+        return audioDetail.song_name + ' - ' + audioDetail.artist;
     }
     handleClickEvent() {
         //handle user click

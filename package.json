@@ -1,6 +1,6 @@
 {
   "name": "h5-audio-player",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "a javascript library or utility for creating audio player on web  or server or mobile side",
   "main": "src/audioplayer.js",
   "scripts": {
@@ -25,6 +25,8 @@
     "README.md",
     "LICENSE",
     "package.json",
+    "css/*",
+    "images/*",
     "dest/audioplayer.bundle.js"
   ],
   "dependencies": {
