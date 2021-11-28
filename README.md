@@ -2,6 +2,7 @@
 - a javascript library or utility for creating audio player on web or server or mobile side
 
 ## Development
+refer to [deployment manual](development.md)
 
 ## usage
 
